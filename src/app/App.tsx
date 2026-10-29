@@ -67,6 +67,8 @@ function useStoredFlag(key: string) {
   return [value, setValue] as const
 }
 
+const REPO_URL = 'https://github.com/tinkeredu/gismnemo'
+
 const PHASE_LABEL = { fetch: 'Holphase', decode: 'Dekodierphase', execute: 'Ausführungsphase' } as const
 
 export default function App() {
@@ -187,6 +189,7 @@ export default function App() {
             items: [
               { label: 'Guide starten', onSelect: startGuide },
               { label: 'Befehlssatz', onSelect: () => setDoc(DOCS.befehlssatz) },
+              { label: 'Fehler melden', onSelect: () => window.open(`${REPO_URL}/issues/new`, '_blank', 'noopener') },
               { label: 'about', onSelect: () => setAbout(true) },
             ],
           },
@@ -360,6 +363,12 @@ export default function App() {
         <Dialog title="about" onClose={() => setAbout(false)}>
           <p className="mb-2 font-bold">Modellrechner MNemo – Web-Version</p>
           <p className="mb-2">Nachbau des Unterrichtsprogramms MNemo 3.2 als Webapp: 256 Speicherzellen à 16 Bit, Akkumulator, Stack und 56 Befehle.</p>
+          <p className="mb-2">
+            Projekt und Fehlermeldungen:{' '}
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="text-info underline">
+              {REPO_URL.replace('https://', '')}
+            </a>
+          </p>
           <button type="button" className="btn self-center px-8!" onClick={() => setAbout(false)} autoFocus>
             OK
           </button>
