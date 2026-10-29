@@ -4,6 +4,7 @@ export interface MenuItem {
   label: string
   onSelect: () => void
   checked?: boolean
+  separator?: boolean
 }
 
 export function MenuBar({ menus }: { menus: { label: string; items: MenuItem[] }[] }) {
@@ -36,7 +37,7 @@ export function MenuBar({ menus }: { menus: { label: string; items: MenuItem[] }
                   key={item.label}
                   type="button"
                   role="menuitem"
-                  className="flex w-full gap-2 px-2 py-0.5 text-left hover:bg-sel hover:text-sel-fg"
+                  className={`flex w-full gap-2 px-2 py-0.5 text-left hover:bg-sel hover:text-sel-fg ${item.separator ? 'mt-0.5 border-t border-line pt-1' : ''}`}
                   onClick={() => {
                     setOpen(null)
                     item.onSelect()

@@ -19,7 +19,6 @@ export interface GuideContext {
   microStep: () => void
   step: () => void
   provideInput: (value: number) => void
-  showStack: (show: boolean) => void
 }
 
 export interface GuideStep {
@@ -70,30 +69,15 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: (
       <>
         <p>256 Zellen (000–255) à 16 Bit. Zuerst stehen die Befehle, danach die Variablen: {k('zahl1')} liegt in Zelle 007, {k('zahl2')} in 008, {k('summe')} in 009.</p>
-        <p>Ein Befehl ist ein Wort aus Opcode und Adresse: {k('inm 7')} = 25·256 + 7 = 6407. Die Liste lässt sich scrollen; „Gehe zu“ springt zu einer Adresse, die blaue Zeile ist der PC.</p>
       </>
     ),
   },
   {
-    title: '1. Holphase (fetch)',
-    target: 'steuerwerk',
-    apply: (c) => c.microStep(),
-    body: (
-      <p>Der Befehl an der Adresse im PC wird geholt: PC → AR, Speicherinhalt → DR → IR. Danach wird der PC um 1 erhöht und zeigt auf den nächsten Befehl.</p>
-    ),
-  },
-  {
-    title: '2. Dekodierphase (decode)',
-    target: 'steuerwerk',
-    apply: (c) => c.microStep(),
-    body: <p>Das Steuerwerk zerlegt das IR in Opcode ({k('inm')}) und Adresse (7) und bereitet die Ausführung vor.</p>,
-  },
-  {
-    title: '3. Ausführungsphase (execute)',
+    title: 'Der erste Befehl',
     target: 'eingabe',
-    apply: (c) => c.microStep(),
+    apply: (c) => c.step(),
     body: (
-      <p>{k('inm 7')} liest eine Zahl in Zelle 007. Das Programm hält an, das Eingabefeld wird gelb und wartet. Im normalen Betrieb tippst du hier eine Zahl und drückst Enter.</p>
+      <p>Ein Einzelschritt führt den ersten Befehl aus: {k('inm 7')} liest eine Zahl in Zelle 007. Das Programm hält an, das Eingabefeld wird gelb und wartet. Im normalen Betrieb tippst du hier eine Zahl und drückst Enter.</p>
     ),
   },
   {
@@ -133,24 +117,15 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: (
       <ul className="list-disc pl-5">
         <li>Einzelschritt: einen ganzen Befehl ausführen</li>
-        <li>Phase: nur Hol-, Dekodier- oder Ausführungsphase</li>
         <li>Start / Pause / Zurücksetzen (setzt Register und Speicher auf das übersetzte Programm zurück)</li>
         <li>„Pause nach jedem Befehl“ regelt das Tempo beim Start</li>
       </ul>
     ),
   },
   {
-    title: 'Der Stack',
-    target: 'stack',
-    apply: (c) => c.showStack(true),
-    body: (
-      <p>Über „Stack → anzeigen“ siehst du den Stapel ab Zelle 255 abwärts. SP zeigt auf den nächsten freien Platz, BP dient als Basis für {k('ldab')}/{k('stab')}. {k('psh')}/{k('pop')} legen den AC ab bzw. holen ihn, {k('jsr')}/{k('rtn')} speichern die Rücksprungadresse.</p>
-    ),
-  },
-  {
     title: 'Hilfe und Ansicht',
     target: 'menu',
-    body: <p>Unter „Hilfe“ findest du die Einführung und den kompletten Befehlssatz, unter „Ansicht“ verschiedene Skins inklusive Darkmode. Viel Spaß beim Programmieren!</p>,
+    body: <p>Unter „Hilfe“ findest du den kompletten Befehlssatz. Unter „Ansicht“ blendest du Steuerwerk und AR/DR-Register ein und wählst einen Skin (auch Darkmode), unter „Stack“ den Stapel. Viel Spaß beim Programmieren!</p>,
   },
 ]
 
