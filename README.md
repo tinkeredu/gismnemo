@@ -17,7 +17,8 @@ Nachbau des Unterrichtsprogramms **MNemo 3.2** (Modellrechner mit Assembler) als
 - Das **Speicherwerk** scrollt in sich, dazu „Gehe zu“ für eine Adresse und „PC folgen“
 - **Editor** mit Zeilennummern, Öffnen/Speichern von `.mno`-Dateien und Strg+Enter zum Übersetzen. Der Quelltext bleibt im Browser gespeichert.
 - **Guide** („Guide starten“): eine interaktive Tour, die ein Beispielprogramm Schritt für Schritt vorführt
-- **Hilfe:** Einführung und Befehlssatz des Originals
+- **Hilfe:** Befehlssatz des Originals
+- Steuerwerk (PC, IR) und AR/DR-Register lassen sich unter „Ansicht“ einblenden (standardmäßig aus)
 - **Skins** unter „Ansicht“: Automatisch (folgt Hell/Dunkel des Systems), Hell, Dunkel, Klassisch (Windows-Look) und Terminal
 
 ## Beispielprogramm
@@ -82,7 +83,7 @@ npm run build    # Typecheck + Produktionsbuild
 |---|---|
 | `src/core` | Befehlssatz, Assembler und Rechner (UI-unabhängig, getestet) |
 | `src/app` | React-Oberfläche: Panels, Editor, Menüs, Guide, Skins |
-| `public/docs` | Einführung und Befehlssatz (HTML des Originals) |
+| `public/docs` | Befehlssatz (HTML des Originals) |
 
 Technik: React 19, TypeScript, Vite, Tailwind CSS 4.
 

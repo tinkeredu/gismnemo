@@ -29,7 +29,6 @@ const NAME_KEY = 'mnemo.filename'
 
 type Doc = { title: string; src: string }
 const DOCS: Record<string, Doc> = {
-  einfuehrung: { title: 'Einführung', src: './docs/einfuehrung.htm' },
   befehlssatz: { title: 'Befehlssatz', src: './docs/befehlssatz.htm' },
 }
 
@@ -62,6 +61,12 @@ function useSkin() {
   return [skin, setSkin] as const
 }
 
+function useStoredFlag(key: string) {
+  const [value, setValue] = useState(() => localStorage.getItem(key) === '1')
+  useEffect(() => localStorage.setItem(key, value ? '1' : '0'), [key, value])
+  return [value, setValue] as const
+}
+
 const PHASE_LABEL = { fetch: 'Holphase', decode: 'Dekodierphase', execute: 'Ausführungsphase' } as const
 
 export default function App() {
@@ -79,8 +84,11 @@ export default function App() {
   const [beforeGuide, setBeforeGuide] = useState<{ source: string; fileName: string } | null>(null)
   const [showEditor, setShowEditor] = useState(true)
   const [showStack, setShowStack] = useState(false)
+  const [showControlUnit, setShowControlUnit] = useStoredFlag('mnemo.showControlUnit')
+  const [showArDr, setShowArDr] = useStoredFlag('mnemo.showArDr')
   const [doc, setDoc] = useState<Doc | null>(null)
   const [about, setAbout] = useState(false)
+  const guiding = guideIndex !== null
 
   useEffect(() => localStorage.setItem(SOURCE_KEY, source), [source])
   useEffect(() => localStorage.setItem(NAME_KEY, fileName), [fileName])
@@ -113,7 +121,6 @@ export default function App() {
     microStep: m.microStep,
     step: m.step,
     provideInput: m.provideInput,
-    showStack: setShowStack,
   }
 
   const gotoGuideStep = (index: number) => {
@@ -167,12 +174,18 @@ export default function App() {
       <MenuBar
         menus={[
           { label: 'Stack', items: [{ label: 'anzeigen', checked: showStack, onSelect: () => setShowStack((s) => !s) }] },
-          { label: 'Ansicht', items: SKINS.map((s) => ({ label: s.label, checked: skin === s.id, onSelect: () => setSkin(s.id) })) },
+          {
+            label: 'Ansicht',
+            items: [
+              { label: 'Steuerwerk (PC, IR)', checked: showControlUnit, onSelect: () => setShowControlUnit((v) => !v) },
+              { label: 'AR/DR-Register', checked: showArDr, onSelect: () => setShowArDr((v) => !v) },
+              ...SKINS.map((s, i) => ({ label: s.label, checked: skin === s.id, separator: i === 0, onSelect: () => setSkin(s.id) })),
+            ],
+          },
           {
             label: 'Hilfe',
             items: [
               { label: 'Guide starten', onSelect: startGuide },
-              { label: 'Einführung', onSelect: () => setDoc(DOCS.einfuehrung) },
               { label: 'Befehlssatz', onSelect: () => setDoc(DOCS.befehlssatz) },
               { label: 'about', onSelect: () => setAbout(true) },
             ],
@@ -187,6 +200,7 @@ export default function App() {
               <GroupBox title="Rechenwerk" guide="rechenwerk">
                 <Accumulator value={cpu.ac} />
               </GroupBox>
+              {showControlUnit && !guiding && (
               <GroupBox title="Steuerwerk" className="flex-1" guide="steuerwerk">
                 <div className="flex flex-col gap-2">
                   <Register label="PC (Program Counter)" value={String(cpu.pc).padStart(3, '0')} />
@@ -194,12 +208,15 @@ export default function App() {
                   <p className="text-xs text-muted">{cpu.state === 'input' ? 'wartet auf Eingabe' : `${PHASE_LABEL[cpu.phase]} als Nächstes`}</p>
                 </div>
               </GroupBox>
+              )}
             </div>
             <GroupBox title="Speicherwerk" className="flex min-h-0 flex-col">
-              <div className="mb-2 flex gap-2">
-                <Register label="AR (Address-Register)" value={String(cpu.ar).padStart(3, '0')} />
-                <Register label="DR (Data-Register)" value={formatDr(cpu.dr)} />
-              </div>
+              {showArDr && !guiding && (
+                <div className="mb-2 flex gap-2">
+                  <Register label="AR (Address-Register)" value={String(cpu.ar).padStart(3, '0')} />
+                  <Register label="DR (Data-Register)" value={formatDr(cpu.dr)} />
+                </div>
+              )}
               <form
                 className="mb-2 flex flex-wrap items-center gap-1 text-xs"
                 onSubmit={(e) => {
