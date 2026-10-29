@@ -1,0 +1,357 @@
+import { useCallback, useEffect, useState } from 'react'
+import { assemble, type AssembleResult } from '../core/assembler'
+import { Dialog } from './Dialog'
+import { Editor } from './Editor'
+import { GuideOverlay } from './Guide'
+import { GUIDE_STEPS, type GuideContext } from './guideSteps'
+import { PauseIcon, PhaseIcon, PlayIcon, StepIcon, StopIcon } from './Icons'
+import { InputField } from './InputField'
+import { MenuBar } from './Menu'
+import { Accumulator, GroupBox, InstructionRegister, MemoryList, OutputList, Register, StackList } from './Panels'
+import { useMachine } from './useMachine'
+
+const DEFAULT_SOURCE = `; Addition zweier Zahlen
+\tinm zahl1\t; erste Zahl einlesen
+\tinm zahl2\t; zweite Zahl einlesen
+\tlda zahl1
+\tadd zahl2
+\tsta summe
+\toutm summe\t; Ergebnis ausgeben
+\tstop
+
+zahl1\tdef 0
+zahl2\tdef 0
+summe\tdef 0
+`
+
+const SOURCE_KEY = 'mnemo.source'
+const NAME_KEY = 'mnemo.filename'
+
+type Doc = { title: string; src: string }
+const DOCS: Record<string, Doc> = {
+  einfuehrung: { title: 'Einführung', src: './docs/einfuehrung.htm' },
+  befehlssatz: { title: 'Befehlssatz', src: './docs/befehlssatz.htm' },
+}
+
+type Skin = 'auto' | 'light' | 'dark' | 'classic' | 'terminal'
+const SKINS: { id: Skin; label: string }[] = [
+  { id: 'auto', label: 'Automatisch (System)' },
+  { id: 'light', label: 'Hell' },
+  { id: 'dark', label: 'Dunkel' },
+  { id: 'classic', label: 'Klassisch (Windows)' },
+  { id: 'terminal', label: 'Terminal' },
+]
+const SKIN_KEY = 'mnemo.skin'
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+function useSkin() {
+  const [skin, setSkin] = useState<Skin>(() => {
+    const saved = localStorage.getItem(SKIN_KEY) as Skin | null
+    return saved && SKINS.some((s) => s.id === saved) ? saved : 'auto'
+  })
+  const [systemDark, setSystemDark] = useState(darkQuery.matches)
+  useEffect(() => {
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+    darkQuery.addEventListener('change', onChange)
+    return () => darkQuery.removeEventListener('change', onChange)
+  }, [])
+  useEffect(() => {
+    localStorage.setItem(SKIN_KEY, skin)
+    document.documentElement.dataset.skin = skin === 'auto' ? (systemDark ? 'dark' : 'light') : skin
+  }, [skin, systemDark])
+  return [skin, setSkin] as const
+}
+
+const PHASE_LABEL = { fetch: 'Holphase', decode: 'Dekodierphase', execute: 'Ausführungsphase' } as const
+
+export default function App() {
+  const m = useMachine()
+  const [skin, setSkin] = useSkin()
+  const { cpu } = m
+  const [source, setSource] = useState(() => localStorage.getItem(SOURCE_KEY) ?? DEFAULT_SOURCE)
+  const [fileName, setFileName] = useState(() => localStorage.getItem(NAME_KEY) ?? 'programm.mno')
+  const [lineOfAddress, setLineOfAddress] = useState<(number | null)[]>([])
+  const [result, setResult] = useState<AssembleResult | null>(null)
+  const [followPc, setFollowPc] = useState(true)
+  const [jumpText, setJumpText] = useState('')
+  const [jump, setJump] = useState<{ addr: number; seq: number } | null>(null)
+  const [guideIndex, setGuideIndex] = useState<number | null>(null)
+  const [beforeGuide, setBeforeGuide] = useState<{ source: string; fileName: string } | null>(null)
+  const [showEditor, setShowEditor] = useState(true)
+  const [showStack, setShowStack] = useState(false)
+  const [doc, setDoc] = useState<Doc | null>(null)
+  const [about, setAbout] = useState(false)
+
+  useEffect(() => localStorage.setItem(SOURCE_KEY, source), [source])
+  useEffect(() => localStorage.setItem(NAME_KEY, fileName), [fileName])
+
+  const { reset } = m
+  const compile = useCallback(
+    (src: string) => {
+      const r = assemble(src)
+      setResult(r)
+      if (!r.ok) return
+      setLineOfAddress(r.lineOfAddress)
+      reset(r.memory)
+    },
+    [reset],
+  )
+
+  const jumpTo = (text: string) => {
+    const addr = Number(text)
+    if (!/^\d+$/.test(text.trim()) || addr > 255) return
+    setFollowPc(false)
+    setJump((j) => ({ addr, seq: (j?.seq ?? 0) + 1 }))
+  }
+
+  const guideContext: GuideContext = {
+    load: (src) => {
+      setSource(src)
+      setFileName('guide.mno')
+      compile(src)
+    },
+    microStep: m.microStep,
+    step: m.step,
+    provideInput: m.provideInput,
+    showStack: setShowStack,
+  }
+
+  const gotoGuideStep = (index: number) => {
+    setShowEditor(true)
+    setShowStack(false)
+    setFollowPc(true)
+    GUIDE_STEPS.slice(0, index + 1).forEach((s) => s.apply?.(guideContext))
+    setGuideIndex(index)
+  }
+
+  const startGuide = () => {
+    if (guideIndex !== null) return
+    setBeforeGuide({ source, fileName })
+    m.pause()
+    gotoGuideStep(0)
+  }
+
+  const closeGuide = () => {
+    setGuideIndex(null)
+    if (!beforeGuide) return
+    setSource(beforeGuide.source)
+    setFileName(beforeGuide.fileName)
+    setBeforeGuide(null)
+    setResult(null)
+    setLineOfAddress([])
+    m.reset(new Array(256).fill(0))
+  }
+
+  const halted = cpu.state === 'halted' || cpu.state === 'error'
+  const currentLine = lineOfAddress[cpu.phase === 'fetch' ? cpu.pc : (cpu.pc + 255) % 256] ?? null
+  const status =
+    cpu.state === 'input'
+      ? 'Warte auf Eingabe …'
+      : cpu.state === 'halted'
+        ? 'Programm beendet (stop).'
+        : cpu.state === 'error'
+          ? `Fehler: ${cpu.error}`
+          : m.running
+            ? 'Programm läuft …'
+            : `Bereit – nächste Phase: ${PHASE_LABEL[cpu.phase]}`
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="titlebar flex items-center gap-2 px-2 py-1">
+        <img src="./favicon.ico" alt="" className="h-5 w-5" />
+        <h1 className="flex-1 font-bold">Modellrechner Mnemo</h1>
+        <button type="button" className="btn py-0.5!" onClick={startGuide}>
+          Guide starten
+        </button>
+      </header>
+      <MenuBar
+        menus={[
+          { label: 'Stack', items: [{ label: 'anzeigen', checked: showStack, onSelect: () => setShowStack((s) => !s) }] },
+          { label: 'Ansicht', items: SKINS.map((s) => ({ label: s.label, checked: skin === s.id, onSelect: () => setSkin(s.id) })) },
+          {
+            label: 'Hilfe',
+            items: [
+              { label: 'Guide starten', onSelect: startGuide },
+              { label: 'Einführung', onSelect: () => setDoc(DOCS.einfuehrung) },
+              { label: 'Befehlssatz', onSelect: () => setDoc(DOCS.befehlssatz) },
+              { label: 'about', onSelect: () => setAbout(true) },
+            ],
+          },
+        ]}
+      />
+
+      <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 lg:flex-row">
+        <div className="grid min-h-0 shrink-0 gap-3 lg:h-full lg:w-[min(760px,60%)]" style={{ gridTemplateRows: 'minmax(0,1fr) auto' }}>
+          <div className={`grid min-h-[360px] gap-3 ${showStack ? 'grid-cols-[170px_1fr_170px]' : 'grid-cols-[170px_1fr]'}`}>
+            <div className="flex flex-col gap-3">
+              <GroupBox title="Rechenwerk" guide="rechenwerk">
+                <Accumulator value={cpu.ac} />
+              </GroupBox>
+              <GroupBox title="Steuerwerk" className="flex-1" guide="steuerwerk">
+                <div className="flex flex-col gap-2">
+                  <Register label="PC (Program Counter)" value={String(cpu.pc).padStart(3, '0')} />
+                  <InstructionRegister value={cpu.ir} />
+                  <p className="text-xs text-muted">{cpu.state === 'input' ? 'wartet auf Eingabe' : `${PHASE_LABEL[cpu.phase]} als Nächstes`}</p>
+                </div>
+              </GroupBox>
+            </div>
+            <GroupBox title="Speicherwerk" className="flex min-h-0 flex-col">
+              <div className="mb-2 flex gap-2">
+                <Register label="AR (Address-Register)" value={String(cpu.ar).padStart(3, '0')} />
+                <Register label="DR (Data-Register)" value={formatDr(cpu.dr)} />
+              </div>
+              <form
+                className="mb-2 flex flex-wrap items-center gap-1 text-xs"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  jumpTo(jumpText)
+                }}
+              >
+                <label className="flex items-center gap-1">
+                  Gehe zu
+                  <input
+                    aria-label="Gehe zu Adresse"
+                    value={jumpText}
+                    onChange={(e) => setJumpText(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="000"
+                    className="sunken w-14 px-1 font-mono"
+                  />
+                </label>
+                <button type="submit" className="btn px-2! py-0!">
+                  OK
+                </button>
+                <label className="ml-auto flex items-center gap-1">
+                  <input type="checkbox" checked={followPc} onChange={(e) => setFollowPc(e.target.checked)} />
+                  PC folgen
+                </label>
+              </form>
+              <div className="h-[50vh] min-h-64 lg:h-auto lg:min-h-0 lg:flex-1" data-guide="memory">
+                <MemoryList memory={cpu.mem} pc={cpu.pc} ar={cpu.ar} followPc={followPc} jump={jump} />
+              </div>
+            </GroupBox>
+            {showStack && (
+              <GroupBox title="Stack" className="flex min-h-0 flex-col" guide="stack">
+                <div className="mb-2 flex gap-2">
+                  <Register label="SP" value={String(cpu.sp).padStart(3, '0')} />
+                  <Register label="BP" value={String(cpu.bp).padStart(3, '0')} />
+                </div>
+                <div className="h-[50vh] min-h-48 lg:h-auto lg:min-h-0 lg:flex-1">
+                  <StackList memory={cpu.mem} sp={cpu.sp} bp={cpu.bp} />
+                </div>
+              </GroupBox>
+            )}
+          </div>
+
+          <div className="grid grid-cols-[170px_1fr_1fr] gap-3">
+            <GroupBox title="Steuerung" guide="steuerung">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex gap-1">
+                  <button type="button" className="btn px-2! py-1.5!" title="Einzelschritt (ein Befehl)" aria-label="Einzelschritt" onClick={m.step} disabled={m.running || cpu.state !== 'ready'}>
+                    <StepIcon />
+                  </button>
+                  <button type="button" className="btn px-2! py-1.5!" title="Eine Phase (Holen/Dekodieren/Ausführen)" aria-label="Phase" onClick={m.microStep} disabled={m.running || cpu.state !== 'ready'}>
+                    <PhaseIcon />
+                  </button>
+                </div>
+                <div className="flex gap-1">
+                  <button type="button" className="btn px-2! py-1.5! text-ok" title="Start" aria-label="Start" onClick={m.run} disabled={m.running || halted}>
+                    <PlayIcon />
+                  </button>
+                  <button type="button" className="btn px-2! py-1.5!" title="Pause" aria-label="Pause" onClick={m.pause} disabled={!m.running}>
+                    <PauseIcon />
+                  </button>
+                  <button type="button" className="btn px-2! py-1.5! text-err" title="Zurücksetzen" aria-label="Zurücksetzen" onClick={() => m.reset()}>
+                    <StopIcon />
+                  </button>
+                </div>
+                <label className="w-full text-xs">
+                  Pause nach jedem Befehl
+                  <input
+                    type="range"
+                    min={0}
+                    max={1000}
+                    step={50}
+                    value={m.delay}
+                    onChange={(e) => m.setDelay(Number(e.target.value))}
+                    className="w-full"
+                    aria-label="Pause nach jedem Befehl"
+                  />
+                  <span className="flex justify-between">
+                    <span>klein</span>
+                    <span>{m.delay} ms</span>
+                    <span>groß</span>
+                  </span>
+                </label>
+              </div>
+            </GroupBox>
+            <GroupBox title="Eingabe" guide="eingabe" className="flex flex-col">
+              <div className="flex flex-1 flex-col gap-3">
+                <InputField active={cpu.state === 'input'} onSubmit={m.provideInput} />
+                <p className={`text-xs ${cpu.state === 'error' ? 'text-err' : 'text-muted'}`} role="status">
+                  {status}
+                </p>
+                <button type="button" className="btn mt-auto self-center px-8!" onClick={() => setShowEditor((s) => !s)} aria-pressed={showEditor}>
+                  Editor
+                </button>
+              </div>
+            </GroupBox>
+            <GroupBox title="Ausgabe" className="flex flex-col" guide="ausgabe">
+              <div className="h-32">
+                <OutputList values={cpu.output} />
+              </div>
+            </GroupBox>
+          </div>
+        </div>
+
+        {showEditor && (
+          <GroupBox title={`Editor – ${fileName}`} className="flex min-h-[480px] min-w-0 flex-1 flex-col lg:min-h-0" guide="editor">
+            <Editor
+              source={source}
+              onChange={setSource}
+              result={result}
+              onCompile={() => compile(source)}
+              onClearResult={() => setResult(null)}
+              currentLine={currentLine}
+              fileName={fileName}
+              onFileNameChange={setFileName}
+            />
+          </GroupBox>
+        )}
+      </main>
+
+      {guideIndex !== null && <GuideOverlay index={guideIndex} onIndex={gotoGuideStep} onClose={closeGuide} />}
+      {m.alert && (
+        <Dialog title="Mnemo" onClose={m.dismissAlert}>
+          <p className="mb-4">{m.alert}</p>
+          <button type="button" className="btn self-center px-8!" onClick={m.dismissAlert} autoFocus>
+            OK
+          </button>
+        </Dialog>
+      )}
+      {doc && (
+        <Dialog title={doc.title} onClose={() => setDoc(null)} wide>
+          <iframe
+            title={doc.title}
+            src={doc.src}
+            className="sunken doc-frame min-h-0 w-full flex-1 bg-white"
+            onLoad={(e) => e.currentTarget.contentWindow?.addEventListener('keydown', (ev) => ev.key === 'Escape' && setDoc(null))}
+          />
+        </Dialog>
+      )}
+      {about && (
+        <Dialog title="about" onClose={() => setAbout(false)}>
+          <p className="mb-2 font-bold">Modellrechner MNemo – Web-Version</p>
+          <p className="mb-2">Nachbau des Unterrichtsprogramms MNemo 3.2 als Webapp: 256 Speicherzellen à 16 Bit, Akkumulator, Stack und 56 Befehle.</p>
+          <button type="button" className="btn self-center px-8!" onClick={() => setAbout(false)} autoFocus>
+            OK
+          </button>
+        </Dialog>
+      )}
+    </div>
+  )
+}
+
+function formatDr(word: number) {
+  return word < 0x8000 ? String(word) : `${word} (${word - 0x10000})`
+}
