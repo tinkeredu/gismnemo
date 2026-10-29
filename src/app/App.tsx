@@ -331,7 +331,12 @@ export default function App() {
       )}
       {doc && (
         <Dialog title={doc.title} onClose={() => setDoc(null)} wide>
-          <iframe title={doc.title} src={doc.src} className="sunken doc-frame min-h-0 w-full flex-1 bg-white" />
+          <iframe
+            title={doc.title}
+            src={doc.src}
+            className="sunken doc-frame min-h-0 w-full flex-1 bg-white"
+            onLoad={(e) => e.currentTarget.contentWindow?.addEventListener('keydown', (ev) => ev.key === 'Escape' && setDoc(null))}
+          />
         </Dialog>
       )}
       {about && (
