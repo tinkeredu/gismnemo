@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: #d4d0c8;
+  color: #000;
+  font-family: Tahoma, 'Segoe UI', Verdana, sans-serif;
+  font-size: 13px;
+}
+
+.group-box {
+  border: 1px solid #808080;
+  box-shadow: inset 1px 1px 0 #fff, 1px 1px 0 #fff;
+  padding: 14px 8px 8px;
+  position: relative;
+}
+
+.group-box > .legend {
+  background: #d4d0c8;
+  font-weight: 700;
+  left: 8px;
+  padding: 0 4px;
+  position: absolute;
+  top: -8px;
+}
+
+.sunken {
+  background: #fff;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  box-shadow: inset 1px 1px 0 #404040;
+}
+
+.btn {
+  background: #d4d0c8;
+  border: 2px solid;
+  border-color: #fff #404040 #404040 #fff;
+  box-shadow: inset -1px -1px 0 #808080;
+  padding: 3px 12px;
+}
+
+.btn:active:not(:disabled) {
+  border-color: #404040 #fff #fff #404040;
+  box-shadow: inset 1px 1px 0 #808080;
+}
+
+.btn:disabled {
+  color: #808080;
+}
+
+.btn:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -5px;
+}
