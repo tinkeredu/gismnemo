@@ -82,10 +82,10 @@ export function GuideOverlay({ index, onIndex, onClose }: { index: number; onInd
       ) : (
         <div className="fixed inset-0 bg-black/45" />
       )}
-      <div role="dialog" aria-label={`Guide: ${step.title}`} className="fixed border-2 border-[#fff_#404040_#404040_#fff] bg-[#ffffe1] p-3 shadow-xl" style={cardStyle}>
+      <div role="dialog" aria-label={`Guide: ${step.title}`} className="fixed guide-card p-3" style={cardStyle}>
         <div className="mb-1 flex items-baseline gap-2">
           <h2 className="flex-1 font-bold">{step.title}</h2>
-          <span className="text-xs text-gray-600">
+          <span className="text-xs text-muted">
             {index + 1} / {GUIDE_STEPS.length}
           </span>
         </div>

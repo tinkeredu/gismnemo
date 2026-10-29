@@ -7,7 +7,8 @@ Nachbau des Unterrichtsprogramms **MNemo 3.2** (Modellrechner mit Assembler) als
 - Fehlermeldungen und Hinweise wie im Original (Zeilennummern ab 0)
 - Einzelschritt, Phasen-Schritt (Holen/Dekodieren/Ausführen), Start/Pause/Reset, einstellbare Pause nach jedem Befehl
 - Editor mit Öffnen/Speichern von `.mno`-Dateien, Quelltext wird im Browser gespeichert
-- Einführung, Befehlssatz und Aufgabenblatt über die Menüs „Hilfe“ und „Aufgaben“
+- Einführung, Befehlssatz und interaktiver Guide im Menü „Hilfe“
+- Skins unter „Ansicht“: Automatisch (System hell/dunkel), Hell, Dunkel, Klassisch (Windows), Terminal
 
 ## Entwicklung
 

@@ -31,7 +31,7 @@ export interface GuideStep {
   apply?: (ctx: GuideContext) => void
 }
 
-const k = (s: string) => <code className="rounded bg-gray-200 px-1 font-mono">{s}</code>
+const k = (s: string) => <code className="rounded bg-code px-1 font-mono">{s}</code>
 
 export const GUIDE_STEPS: GuideStep[] = [
   {
@@ -148,9 +148,9 @@ export const GUIDE_STEPS: GuideStep[] = [
     ),
   },
   {
-    title: 'Hilfe und Aufgaben',
+    title: 'Hilfe und Ansicht',
     target: 'menu',
-    body: <p>Im Menü findest du die Einführung, den kompletten Befehlssatz und das Aufgabenblatt. Viel Spaß beim Programmieren!</p>,
+    body: <p>Unter „Hilfe“ findest du die Einführung und den kompletten Befehlssatz, unter „Ansicht“ verschiedene Skins inklusive Darkmode. Viel Spaß beim Programmieren!</p>,
   },
 ]
 

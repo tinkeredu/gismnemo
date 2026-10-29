@@ -12,11 +12,11 @@ export function Dialog({ title, onClose, children, wide = false }: { title: stri
         role="dialog"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-full flex-col border-2 border-[#fff_#404040_#404040_#fff] bg-[#d4d0c8] shadow-xl ${wide ? 'h-[90vh] w-[min(1000px,100%)]' : 'w-[min(420px,100%)]'}`}
+        className={`flex max-h-full flex-col dialog-frame ${wide ? 'h-[90vh] w-[min(1000px,100%)]' : 'w-[min(420px,100%)]'}`}
       >
-        <div className="flex items-center bg-gradient-to-r from-[#0a246a] to-[#a6caf0] px-2 py-1 font-bold text-white">
+        <div className="titlebar flex items-center px-2 py-1 font-bold">
           <span className="flex-1">{title}</span>
-          <button type="button" aria-label="Schließen" className="btn px-2! py-0! text-black" onClick={onClose}>
+          <button type="button" aria-label="Schließen" className="btn px-2! py-0!" onClick={onClose}>
             ×
           </button>
         </div>

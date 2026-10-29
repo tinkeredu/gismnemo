@@ -45,7 +45,7 @@ export function InputField({ active, onSubmit }: { active: boolean; onSubmit: (v
           setInvalid(false)
         }}
         inputMode="numeric"
-        className={`sunken w-full px-1 font-mono outline-none ${active ? 'bg-yellow-200!' : 'bg-[#eee]!'} ${invalid ? 'border-red-600!' : ''}`}
+        className={`sunken w-full px-1 font-mono outline-none ${active ? 'bg-input-active!' : 'opacity-60'} ${invalid ? 'border-err!' : ''}`}
       />
       <button type="submit" className="btn" disabled={!active}>
         OK

@@ -15,7 +15,7 @@ export function MenuBar({ menus }: { menus: { label: string; items: MenuItem[] }
     return () => document.removeEventListener('mousedown', close)
   }, [])
   return (
-    <nav ref={ref} data-guide="menu" className="relative flex border-b border-[#808080] bg-[#d4d0c8] select-none" role="menubar">
+    <nav ref={ref} data-guide="menu" className="menubar relative flex select-none" role="menubar">
       {menus.map((m, i) => (
         <div key={m.label} className="relative">
           <button
@@ -23,20 +23,20 @@ export function MenuBar({ menus }: { menus: { label: string; items: MenuItem[] }
             role="menuitem"
             aria-haspopup="menu"
             aria-expanded={open === i}
-            className={`px-2 py-0.5 ${open === i ? 'bg-[#0a246a] text-white' : ''}`}
+            className={`px-2 py-0.5 ${open === i ? 'bg-sel text-sel-fg' : ''}`}
             onClick={() => setOpen(open === i ? null : i)}
             onMouseEnter={() => open !== null && setOpen(i)}
           >
             {m.label}
           </button>
           {open === i && (
-            <div role="menu" className="absolute top-full left-0 z-40 min-w-44 border-2 border-[#fff_#404040_#404040_#fff] bg-[#d4d0c8] py-0.5 shadow">
+            <div role="menu" className="absolute top-full left-0 z-40 min-w-44 menu-pop py-0.5">
               {m.items.map((item) => (
                 <button
                   key={item.label}
                   type="button"
                   role="menuitem"
-                  className="flex w-full gap-2 px-2 py-0.5 text-left hover:bg-[#0a246a] hover:text-white"
+                  className="flex w-full gap-2 px-2 py-0.5 text-left hover:bg-sel hover:text-sel-fg"
                   onClick={() => {
                     setOpen(null)
                     item.onSelect()

@@ -93,7 +93,7 @@ describe('cpu', () => {
     expect(cpu.phase).toBe('fetch')
   })
 
-  it('solves Aufgabe 1 (Quadratzahlen) and Aufgabe 2 (GGT)', () => {
+  it('runs the square-number and Euclid GCD programs', () => {
     const squares = `inm n
 anfang
 lda q

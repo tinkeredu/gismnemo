@@ -16,7 +16,7 @@ export function Register({ label, value, highlight = false }: { label: string; v
     <label className="block">
       <span className="block text-xs">{label}</span>
       <output
-        className={`sunken block min-w-28 px-1 font-mono whitespace-pre ${highlight ? 'bg-yellow-100!' : ''}`}
+        className={`sunken block min-w-28 px-1 font-mono whitespace-pre ${highlight ? 'bg-hl!' : ''}`}
         aria-label={label}
       >
         {value}
@@ -29,7 +29,7 @@ export function Accumulator({ value }: { value: number }) {
   return (
     <label className="block">
       <span className="block text-xs">AC (Accumulator)</span>
-      <output aria-label="AC" className="block border-2 border-[#808080] bg-black px-1 font-mono text-lg text-lime-400">
+      <output aria-label="AC" className="acc block px-1 font-mono text-lg">
         {formatValue(value)}
       </output>
     </label>
@@ -71,7 +71,7 @@ export function MemoryList({ memory, pc, ar, followPc, jump }: MemoryListProps) 
           key={addr}
           role="option"
           aria-selected={addr === pc}
-          className={`px-1 whitespace-pre ${addr === pc ? 'bg-[#0a246a] text-white' : addr === ar ? 'bg-yellow-100' : ''}`}
+          className={`px-1 whitespace-pre ${addr === pc ? 'bg-sel text-sel-fg' : addr === ar ? 'bg-hl' : ''}`}
         >
           {formatMemoryCell(addr, memory[addr])}
         </div>
@@ -85,9 +85,9 @@ export function StackList({ memory, sp, bp }: { memory: number[]; sp: number; bp
   for (let addr = STACK_START; addr >= sp; addr--) {
     const marks = [addr === sp ? 'SP' : '', addr === bp ? 'BP' : ''].filter(Boolean).join(',')
     rows.push(
-      <div key={addr} className={`flex gap-2 px-1 whitespace-pre ${addr === sp ? 'text-gray-500' : ''}`}>
+      <div key={addr} className={`flex gap-2 px-1 whitespace-pre ${addr === sp ? 'text-muted' : ''}`}>
         <span>{formatStackCell(addr, memory[addr])}</span>
-        <span className="text-xs leading-[18px] text-blue-800">{marks}</span>
+        <span className="text-xs leading-[18px] text-info">{marks}</span>
       </div>,
     )
   }

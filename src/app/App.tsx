@@ -31,13 +31,42 @@ type Doc = { title: string; src: string }
 const DOCS: Record<string, Doc> = {
   einfuehrung: { title: 'Einführung', src: './docs/einfuehrung.htm' },
   befehlssatz: { title: 'Befehlssatz', src: './docs/befehlssatz.htm' },
-  blatt1: { title: 'Aufgaben – Blatt 1', src: './docs/aufgaben01.htm' },
+}
+
+type Skin = 'auto' | 'light' | 'dark' | 'classic' | 'terminal'
+const SKINS: { id: Skin; label: string }[] = [
+  { id: 'auto', label: 'Automatisch (System)' },
+  { id: 'light', label: 'Hell' },
+  { id: 'dark', label: 'Dunkel' },
+  { id: 'classic', label: 'Klassisch (Windows)' },
+  { id: 'terminal', label: 'Terminal' },
+]
+const SKIN_KEY = 'mnemo.skin'
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+function useSkin() {
+  const [skin, setSkin] = useState<Skin>(() => {
+    const saved = localStorage.getItem(SKIN_KEY) as Skin | null
+    return saved && SKINS.some((s) => s.id === saved) ? saved : 'auto'
+  })
+  const [systemDark, setSystemDark] = useState(darkQuery.matches)
+  useEffect(() => {
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+    darkQuery.addEventListener('change', onChange)
+    return () => darkQuery.removeEventListener('change', onChange)
+  }, [])
+  useEffect(() => {
+    localStorage.setItem(SKIN_KEY, skin)
+    document.documentElement.dataset.skin = skin === 'auto' ? (systemDark ? 'dark' : 'light') : skin
+  }, [skin, systemDark])
+  return [skin, setSkin] as const
 }
 
 const PHASE_LABEL = { fetch: 'Holphase', decode: 'Dekodierphase', execute: 'Ausführungsphase' } as const
 
 export default function App() {
   const m = useMachine()
+  const [skin, setSkin] = useSkin()
   const { cpu } = m
   const [source, setSource] = useState(() => localStorage.getItem(SOURCE_KEY) ?? DEFAULT_SOURCE)
   const [fileName, setFileName] = useState(() => localStorage.getItem(NAME_KEY) ?? 'programm.mno')
@@ -128,17 +157,17 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-2 bg-gradient-to-r from-[#0a246a] to-[#a6caf0] px-2 py-1 text-white">
+      <header className="titlebar flex items-center gap-2 px-2 py-1">
         <img src="./favicon.ico" alt="" className="h-5 w-5" />
         <h1 className="flex-1 font-bold">Modellrechner Mnemo</h1>
-        <button type="button" className="btn py-0.5! text-black" onClick={startGuide}>
+        <button type="button" className="btn py-0.5!" onClick={startGuide}>
           Guide starten
         </button>
       </header>
       <MenuBar
         menus={[
           { label: 'Stack', items: [{ label: 'anzeigen', checked: showStack, onSelect: () => setShowStack((s) => !s) }] },
-          { label: 'Aufgaben', items: [{ label: 'Blatt 1', onSelect: () => setDoc(DOCS.blatt1) }] },
+          { label: 'Ansicht', items: SKINS.map((s) => ({ label: s.label, checked: skin === s.id, onSelect: () => setSkin(s.id) })) },
           {
             label: 'Hilfe',
             items: [
@@ -162,7 +191,7 @@ export default function App() {
                 <div className="flex flex-col gap-2">
                   <Register label="PC (Program Counter)" value={String(cpu.pc).padStart(3, '0')} />
                   <InstructionRegister value={cpu.ir} />
-                  <p className="text-xs text-gray-700">{cpu.state === 'input' ? 'wartet auf Eingabe' : `${PHASE_LABEL[cpu.phase]} als Nächstes`}</p>
+                  <p className="text-xs text-muted">{cpu.state === 'input' ? 'wartet auf Eingabe' : `${PHASE_LABEL[cpu.phase]} als Nächstes`}</p>
                 </div>
               </GroupBox>
             </div>
@@ -226,13 +255,13 @@ export default function App() {
                   </button>
                 </div>
                 <div className="flex gap-1">
-                  <button type="button" className="btn px-2! py-1.5! text-green-800" title="Start" aria-label="Start" onClick={m.run} disabled={m.running || halted}>
+                  <button type="button" className="btn px-2! py-1.5! text-ok" title="Start" aria-label="Start" onClick={m.run} disabled={m.running || halted}>
                     <PlayIcon />
                   </button>
                   <button type="button" className="btn px-2! py-1.5!" title="Pause" aria-label="Pause" onClick={m.pause} disabled={!m.running}>
                     <PauseIcon />
                   </button>
-                  <button type="button" className="btn px-2! py-1.5! text-red-800" title="Zurücksetzen" aria-label="Zurücksetzen" onClick={() => m.reset()}>
+                  <button type="button" className="btn px-2! py-1.5! text-err" title="Zurücksetzen" aria-label="Zurücksetzen" onClick={() => m.reset()}>
                     <StopIcon />
                   </button>
                 </div>
@@ -256,10 +285,10 @@ export default function App() {
                 </label>
               </div>
             </GroupBox>
-            <GroupBox title="Eingabe" guide="eingabe">
-              <div className="flex h-full flex-col gap-3">
+            <GroupBox title="Eingabe" guide="eingabe" className="flex flex-col">
+              <div className="flex flex-1 flex-col gap-3">
                 <InputField active={cpu.state === 'input'} onSubmit={m.provideInput} />
-                <p className={`text-xs ${cpu.state === 'error' ? 'text-red-700' : 'text-gray-700'}`} role="status">
+                <p className={`text-xs ${cpu.state === 'error' ? 'text-err' : 'text-muted'}`} role="status">
                   {status}
                 </p>
                 <button type="button" className="btn mt-auto self-center px-8!" onClick={() => setShowEditor((s) => !s)} aria-pressed={showEditor}>
@@ -302,7 +331,7 @@ export default function App() {
       )}
       {doc && (
         <Dialog title={doc.title} onClose={() => setDoc(null)} wide>
-          <iframe title={doc.title} src={doc.src} className="sunken min-h-0 w-full flex-1" />
+          <iframe title={doc.title} src={doc.src} className="sunken doc-frame min-h-0 w-full flex-1 bg-white" />
         </Dialog>
       )}
       {about && (

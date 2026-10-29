@@ -58,7 +58,7 @@ export function Editor({ source, onChange, result, onCompile, onClearResult, cur
 
   const row = (d: Diagnostic, kind: string) => (
     <li key={`${kind}${d.line}-${d.code}`}>
-      <button type="button" className="w-full px-1 text-left hover:bg-[#0a246a] hover:text-white" onClick={() => gotoLine(d.line)}>
+      <button type="button" className="w-full px-1 text-left hover:bg-sel hover:text-sel-fg" onClick={() => gotoLine(d.line)}>
         Zeile: {d.line}
         {'   '}
         {d.code}
@@ -90,7 +90,7 @@ export function Editor({ source, onChange, result, onCompile, onClearResult, cur
             e.target.value = ''
           }}
         />
-        <span className="ml-1 truncate text-xs text-gray-700" title={fileName}>
+        <span className="ml-1 truncate text-xs text-muted" title={fileName}>
           {fileName}
         </span>
         <button type="button" className="btn ml-auto font-bold" onClick={compile} data-guide="compile">
@@ -98,10 +98,10 @@ export function Editor({ source, onChange, result, onCompile, onClearResult, cur
         </button>
       </div>
       <div className="sunken flex min-h-0 flex-1 overflow-hidden font-mono text-[13px]" style={{ lineHeight: `${LINE_HEIGHT}px` }}>
-        <div ref={gutterRef} aria-hidden className="relative w-10 shrink-0 overflow-hidden border-r border-gray-300 bg-[#f0f0f0] text-right text-gray-500 select-none">
+        <div ref={gutterRef} aria-hidden className="relative w-10 shrink-0 overflow-hidden border-r border-line bg-gutter text-right text-muted select-none">
           <div style={{ transform: `translateY(${-scrollTop}px)` }} className="py-1">
             {Array.from({ length: lineCount }, (_, i) => (
-              <div key={i} className={`pr-1 ${i === currentLine ? 'bg-[#0a246a] text-white' : ''}`}>
+              <div key={i} className={`pr-1 ${i === currentLine ? 'bg-sel text-sel-fg' : ''}`}>
                 {i}
               </div>
             ))}
@@ -129,26 +129,26 @@ export function Editor({ source, onChange, result, onCompile, onClearResult, cur
               compile()
             }
           }}
-          className="min-w-0 flex-1 resize-none bg-white px-2 py-1 outline-none"
+          className="min-w-0 flex-1 resize-none bg-field text-fg px-2 py-1 outline-none"
           style={{ tabSize: 8 }}
         />
       </div>
       <div aria-label="Meldungen" data-guide="messages" className="sunken h-36 shrink-0 overflow-y-auto font-mono text-[13px] whitespace-pre">
-        {!result && <p className="px-1 text-gray-500">Strg+Enter oder „Übersetzen“ übersetzt das Programm und lädt es in den Speicher.</p>}
+        {!result && <p className="px-1 text-muted">Strg+Enter oder „Übersetzen“ übersetzt das Programm und lädt es in den Speicher.</p>}
         {result?.ok && (
-          <p className="px-1 text-green-800">
+          <p className="px-1 text-ok">
             Übersetzung erfolgreich – {result.codeSize} Befehle, {result.variables.size} Variablen geladen.
           </p>
         )}
         {result && result.errors.length > 0 && (
           <>
-            <p className="px-1 font-bold text-red-700">******Fehler******</p>
+            <p className="px-1 font-bold text-err">******Fehler******</p>
             <ul>{result.errors.map((d) => row(d, 'e'))}</ul>
           </>
         )}
         {result && result.hints.length > 0 && (
           <>
-            <p className="px-1 font-bold text-blue-800">******Hinweise******</p>
+            <p className="px-1 font-bold text-info">******Hinweise******</p>
             <ul>{result.hints.map((d) => row(d, 'h'))}</ul>
           </>
         )}
