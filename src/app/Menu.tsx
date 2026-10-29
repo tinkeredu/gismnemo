@@ -15,7 +15,7 @@ export function MenuBar({ menus }: { menus: { label: string; items: MenuItem[] }
     return () => document.removeEventListener('mousedown', close)
   }, [])
   return (
-    <nav ref={ref} className="relative flex border-b border-[#808080] bg-[#d4d0c8] select-none" role="menubar">
+    <nav ref={ref} data-guide="menu" className="relative flex border-b border-[#808080] bg-[#d4d0c8] select-none" role="menubar">
       {menus.map((m, i) => (
         <div key={m.label} className="relative">
           <button

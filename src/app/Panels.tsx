@@ -2,9 +2,9 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { formatInstruction, formatMemoryCell, formatStackCell, formatValue } from '../core/format'
 import { MEMORY_SIZE, STACK_START } from '../core/isa'
 
-export function GroupBox({ title, className = '', children }: { title: string; className?: string; children: ReactNode }) {
+export function GroupBox({ title, className = '', guide, children }: { title: string; className?: string; guide?: string; children: ReactNode }) {
   return (
-    <section className={`group-box ${className}`} aria-label={title}>
+    <section className={`group-box ${className}`} aria-label={title} data-guide={guide}>
       <span className="legend">{title}</span>
       {children}
     </section>
@@ -40,24 +40,37 @@ export function InstructionRegister({ value }: { value: number }) {
   return <Register label="IR (Instruction-Register)" value={formatInstruction(value)} />
 }
 
-export function MemoryList({ memory, pc, ar, onSelect }: { memory: number[]; pc: number; ar: number; onSelect?: (addr: number) => void }) {
+interface MemoryListProps {
+  memory: number[]
+  pc: number
+  ar: number
+  followPc: boolean
+  /** Scroll request: changes of `seq` scroll `addr` to the top. */
+  jump: { addr: number; seq: number } | null
+}
+
+export function MemoryList({ memory, pc, ar, followPc, jump }: MemoryListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const list = listRef.current
     const row = list?.children[pc] as HTMLElement | undefined
-    if (!list || !row) return
+    if (!followPc || !list || !row) return
     if (row.offsetTop < list.scrollTop || row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = row.offsetTop - list.clientHeight / 3
     }
-  }, [pc])
+  }, [pc, followPc])
+  useEffect(() => {
+    const list = listRef.current
+    const row = jump && (list?.children[jump.addr] as HTMLElement | undefined)
+    if (list && row) list.scrollTop = row.offsetTop
+  }, [jump])
   return (
-    <div ref={listRef} role="listbox" aria-label="Speicher" className="sunken relative h-full min-h-48 overflow-y-auto font-mono text-[13px] leading-[18px]">
+    <div ref={listRef} role="listbox" aria-label="Speicher" tabIndex={0} className="sunken relative h-full overflow-y-auto overscroll-contain font-mono text-[13px] leading-[18px]">
       {Array.from({ length: MEMORY_SIZE }, (_, addr) => (
         <div
           key={addr}
           role="option"
           aria-selected={addr === pc}
-          onClick={() => onSelect?.(addr)}
           className={`px-1 whitespace-pre ${addr === pc ? 'bg-[#0a246a] text-white' : addr === ar ? 'bg-yellow-100' : ''}`}
         >
           {formatMemoryCell(addr, memory[addr])}

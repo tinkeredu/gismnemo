@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { AssembleResult } from '../core/assembler'
+import { assemble, type AssembleResult } from '../core/assembler'
 import { Dialog } from './Dialog'
 import { Editor } from './Editor'
+import { GuideOverlay } from './Guide'
+import { GUIDE_STEPS, type GuideContext } from './guideSteps'
 import { PauseIcon, PhaseIcon, PlayIcon, StepIcon, StopIcon } from './Icons'
 import { InputField } from './InputField'
 import { MenuBar } from './Menu'
@@ -40,6 +42,12 @@ export default function App() {
   const [source, setSource] = useState(() => localStorage.getItem(SOURCE_KEY) ?? DEFAULT_SOURCE)
   const [fileName, setFileName] = useState(() => localStorage.getItem(NAME_KEY) ?? 'programm.mno')
   const [lineOfAddress, setLineOfAddress] = useState<(number | null)[]>([])
+  const [result, setResult] = useState<AssembleResult | null>(null)
+  const [followPc, setFollowPc] = useState(true)
+  const [jumpText, setJumpText] = useState('')
+  const [jump, setJump] = useState<{ addr: number; seq: number } | null>(null)
+  const [guideIndex, setGuideIndex] = useState<number | null>(null)
+  const [beforeGuide, setBeforeGuide] = useState<{ source: string; fileName: string } | null>(null)
   const [showEditor, setShowEditor] = useState(true)
   const [showStack, setShowStack] = useState(false)
   const [doc, setDoc] = useState<Doc | null>(null)
@@ -48,14 +56,62 @@ export default function App() {
   useEffect(() => localStorage.setItem(SOURCE_KEY, source), [source])
   useEffect(() => localStorage.setItem(NAME_KEY, fileName), [fileName])
 
-  const onAssembled = useCallback(
-    (r: AssembleResult) => {
+  const { reset } = m
+  const compile = useCallback(
+    (src: string) => {
+      const r = assemble(src)
+      setResult(r)
       if (!r.ok) return
       setLineOfAddress(r.lineOfAddress)
-      m.reset(r.memory)
+      reset(r.memory)
     },
-    [m],
+    [reset],
   )
+
+  const jumpTo = (text: string) => {
+    const addr = Number(text)
+    if (!/^\d+$/.test(text.trim()) || addr > 255) return
+    setFollowPc(false)
+    setJump((j) => ({ addr, seq: (j?.seq ?? 0) + 1 }))
+  }
+
+  const guideContext: GuideContext = {
+    load: (src) => {
+      setSource(src)
+      setFileName('guide.mno')
+      compile(src)
+    },
+    microStep: m.microStep,
+    step: m.step,
+    provideInput: m.provideInput,
+    showStack: setShowStack,
+  }
+
+  const gotoGuideStep = (index: number) => {
+    setShowEditor(true)
+    setShowStack(false)
+    setFollowPc(true)
+    GUIDE_STEPS.slice(0, index + 1).forEach((s) => s.apply?.(guideContext))
+    setGuideIndex(index)
+  }
+
+  const startGuide = () => {
+    if (guideIndex !== null) return
+    setBeforeGuide({ source, fileName })
+    m.pause()
+    gotoGuideStep(0)
+  }
+
+  const closeGuide = () => {
+    setGuideIndex(null)
+    if (!beforeGuide) return
+    setSource(beforeGuide.source)
+    setFileName(beforeGuide.fileName)
+    setBeforeGuide(null)
+    setResult(null)
+    setLineOfAddress([])
+    m.reset(new Array(256).fill(0))
+  }
 
   const halted = cpu.state === 'halted' || cpu.state === 'error'
   const currentLine = lineOfAddress[cpu.phase === 'fetch' ? cpu.pc : (cpu.pc + 255) % 256] ?? null
@@ -74,7 +130,10 @@ export default function App() {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-2 bg-gradient-to-r from-[#0a246a] to-[#a6caf0] px-2 py-1 text-white">
         <img src="./favicon.ico" alt="" className="h-5 w-5" />
-        <h1 className="font-bold">Modellrechner Mnemo</h1>
+        <h1 className="flex-1 font-bold">Modellrechner Mnemo</h1>
+        <button type="button" className="btn py-0.5! text-black" onClick={startGuide}>
+          Guide starten
+        </button>
       </header>
       <MenuBar
         menus={[
@@ -83,6 +142,7 @@ export default function App() {
           {
             label: 'Hilfe',
             items: [
+              { label: 'Guide starten', onSelect: startGuide },
               { label: 'Einführung', onSelect: () => setDoc(DOCS.einfuehrung) },
               { label: 'Befehlssatz', onSelect: () => setDoc(DOCS.befehlssatz) },
               { label: 'about', onSelect: () => setAbout(true) },
@@ -95,14 +155,14 @@ export default function App() {
         <div className="grid min-h-0 shrink-0 gap-3 lg:h-full lg:w-[min(760px,60%)]" style={{ gridTemplateRows: 'minmax(0,1fr) auto' }}>
           <div className={`grid min-h-[360px] gap-3 ${showStack ? 'grid-cols-[170px_1fr_170px]' : 'grid-cols-[170px_1fr]'}`}>
             <div className="flex flex-col gap-3">
-              <GroupBox title="Rechenwerk">
+              <GroupBox title="Rechenwerk" guide="rechenwerk">
                 <Accumulator value={cpu.ac} />
               </GroupBox>
-              <GroupBox title="Steuerwerk" className="flex-1">
+              <GroupBox title="Steuerwerk" className="flex-1" guide="steuerwerk">
                 <div className="flex flex-col gap-2">
                   <Register label="PC (Program Counter)" value={String(cpu.pc).padStart(3, '0')} />
                   <InstructionRegister value={cpu.ir} />
-                  <p className="text-xs text-gray-700">{PHASE_LABEL[cpu.phase]} als Nächstes</p>
+                  <p className="text-xs text-gray-700">{cpu.state === 'input' ? 'wartet auf Eingabe' : `${PHASE_LABEL[cpu.phase]} als Nächstes`}</p>
                 </div>
               </GroupBox>
             </div>
@@ -111,17 +171,43 @@ export default function App() {
                 <Register label="AR (Address-Register)" value={String(cpu.ar).padStart(3, '0')} />
                 <Register label="DR (Data-Register)" value={formatDr(cpu.dr)} />
               </div>
-              <div className="min-h-0 flex-1">
-                <MemoryList memory={cpu.mem} pc={cpu.pc} ar={cpu.ar} />
+              <form
+                className="mb-2 flex flex-wrap items-center gap-1 text-xs"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  jumpTo(jumpText)
+                }}
+              >
+                <label className="flex items-center gap-1">
+                  Gehe zu
+                  <input
+                    aria-label="Gehe zu Adresse"
+                    value={jumpText}
+                    onChange={(e) => setJumpText(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="000"
+                    className="sunken w-14 px-1 font-mono"
+                  />
+                </label>
+                <button type="submit" className="btn px-2! py-0!">
+                  OK
+                </button>
+                <label className="ml-auto flex items-center gap-1">
+                  <input type="checkbox" checked={followPc} onChange={(e) => setFollowPc(e.target.checked)} />
+                  PC folgen
+                </label>
+              </form>
+              <div className="h-[50vh] min-h-64 lg:h-auto lg:min-h-0 lg:flex-1" data-guide="memory">
+                <MemoryList memory={cpu.mem} pc={cpu.pc} ar={cpu.ar} followPc={followPc} jump={jump} />
               </div>
             </GroupBox>
             {showStack && (
-              <GroupBox title="Stack" className="flex min-h-0 flex-col">
+              <GroupBox title="Stack" className="flex min-h-0 flex-col" guide="stack">
                 <div className="mb-2 flex gap-2">
                   <Register label="SP" value={String(cpu.sp).padStart(3, '0')} />
                   <Register label="BP" value={String(cpu.bp).padStart(3, '0')} />
                 </div>
-                <div className="min-h-0 flex-1">
+                <div className="h-[50vh] min-h-48 lg:h-auto lg:min-h-0 lg:flex-1">
                   <StackList memory={cpu.mem} sp={cpu.sp} bp={cpu.bp} />
                 </div>
               </GroupBox>
@@ -129,7 +215,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-[170px_1fr_1fr] gap-3">
-            <GroupBox title="Steuerung">
+            <GroupBox title="Steuerung" guide="steuerung">
               <div className="flex flex-col items-center gap-2">
                 <div className="flex gap-1">
                   <button type="button" className="btn px-2! py-1.5!" title="Einzelschritt (ein Befehl)" aria-label="Einzelschritt" onClick={m.step} disabled={m.running || cpu.state !== 'ready'}>
@@ -170,7 +256,7 @@ export default function App() {
                 </label>
               </div>
             </GroupBox>
-            <GroupBox title="Eingabe">
+            <GroupBox title="Eingabe" guide="eingabe">
               <div className="flex h-full flex-col gap-3">
                 <InputField active={cpu.state === 'input'} onSubmit={m.provideInput} />
                 <p className={`text-xs ${cpu.state === 'error' ? 'text-red-700' : 'text-gray-700'}`} role="status">
@@ -181,7 +267,7 @@ export default function App() {
                 </button>
               </div>
             </GroupBox>
-            <GroupBox title="Ausgabe" className="flex flex-col">
+            <GroupBox title="Ausgabe" className="flex flex-col" guide="ausgabe">
               <div className="h-32">
                 <OutputList values={cpu.output} />
               </div>
@@ -190,11 +276,13 @@ export default function App() {
         </div>
 
         {showEditor && (
-          <GroupBox title={`Editor – ${fileName}`} className="flex min-h-[480px] min-w-0 flex-1 flex-col lg:min-h-0">
+          <GroupBox title={`Editor – ${fileName}`} className="flex min-h-[480px] min-w-0 flex-1 flex-col lg:min-h-0" guide="editor">
             <Editor
               source={source}
               onChange={setSource}
-              onAssembled={onAssembled}
+              result={result}
+              onCompile={() => compile(source)}
+              onClearResult={() => setResult(null)}
               currentLine={currentLine}
               fileName={fileName}
               onFileNameChange={setFileName}
@@ -203,6 +291,7 @@ export default function App() {
         )}
       </main>
 
+      {guideIndex !== null && <GuideOverlay index={guideIndex} onIndex={gotoGuideStep} onClose={closeGuide} />}
       {m.alert && (
         <Dialog title="Mnemo" onClose={m.dismissAlert}>
           <p className="mb-4">{m.alert}</p>

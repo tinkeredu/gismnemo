@@ -1,30 +1,27 @@
 import { useRef, useState } from 'react'
-import { assemble, type AssembleResult, type Diagnostic } from '../core/assembler'
+import type { AssembleResult, Diagnostic } from '../core/assembler'
 
 const LINE_HEIGHT = 18
 
 interface Props {
   source: string
   onChange: (source: string) => void
-  onAssembled: (result: AssembleResult) => void
+  result: AssembleResult | null
+  onCompile: () => void
+  onClearResult: () => void
   currentLine: number | null
   fileName: string
   onFileNameChange: (name: string) => void
 }
 
-export function Editor({ source, onChange, onAssembled, currentLine, fileName, onFileNameChange }: Props) {
+export function Editor({ source, onChange, result, onCompile, onClearResult, currentLine, fileName, onFileNameChange }: Props) {
   const textRef = useRef<HTMLTextAreaElement>(null)
   const gutterRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [result, setResult] = useState<AssembleResult | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const lineCount = source.split('\n').length
 
-  const compile = () => {
-    const r = assemble(source)
-    setResult(r)
-    onAssembled(r)
-  }
+  const compile = onCompile
 
   const gotoLine = (line: number) => {
     const ta = textRef.current
@@ -56,7 +53,7 @@ export function Editor({ source, onChange, onAssembled, currentLine, fileName, o
     }
     onChange(text.replace(/\r\n?/g, '\n'))
     onFileNameChange(file.name)
-    setResult(null)
+    onClearResult()
   }
 
   const row = (d: Diagnostic, kind: string) => (
@@ -73,8 +70,8 @@ export function Editor({ source, onChange, onAssembled, currentLine, fileName, o
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1">
-        <button type="button" className="btn" onClick={() => { onChange(''); onFileNameChange('programm.mno'); setResult(null) }}>
+      <div className="flex flex-wrap items-center gap-1" data-guide="editor-toolbar">
+        <button type="button" className="btn" onClick={() => { onChange(''); onFileNameChange('programm.mno'); onClearResult() }}>
           Neu
         </button>
         <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
@@ -96,7 +93,7 @@ export function Editor({ source, onChange, onAssembled, currentLine, fileName, o
         <span className="ml-1 truncate text-xs text-gray-700" title={fileName}>
           {fileName}
         </span>
-        <button type="button" className="btn ml-auto font-bold" onClick={compile}>
+        <button type="button" className="btn ml-auto font-bold" onClick={compile} data-guide="compile">
           Übersetzen
         </button>
       </div>
@@ -136,7 +133,7 @@ export function Editor({ source, onChange, onAssembled, currentLine, fileName, o
           style={{ tabSize: 8 }}
         />
       </div>
-      <div aria-label="Meldungen" className="sunken h-36 shrink-0 overflow-y-auto font-mono text-[13px] whitespace-pre">
+      <div aria-label="Meldungen" data-guide="messages" className="sunken h-36 shrink-0 overflow-y-auto font-mono text-[13px] whitespace-pre">
         {!result && <p className="px-1 text-gray-500">Strg+Enter oder „Übersetzen“ übersetzt das Programm und lädt es in den Speicher.</p>}
         {result?.ok && (
           <p className="px-1 text-green-800">
